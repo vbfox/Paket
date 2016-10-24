@@ -377,5 +377,74 @@ namespace Paket.Bootstrapper.Tests
             Assert.That(result.DownloadArguments.Target, Does.StartWith(Path.GetTempPath()).And.EndsWith(".exe"));
             Assert.That(result.DownloadArguments.MaxFileAgeInMinutes, Is.Null);
         }
+
+        [Test]
+        public void Magic_Dependencies_Empty_Args()
+        {
+            //arrange
+
+            //act
+            var result = ArgumentParser.ParseArgumentsAndConfigurations(new[] {"-s", "--help", "foo"}, null, null, true,
+                new string[0] );
+
+            //assert
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Silent, Is.True);
+            Assert.That(result.UnprocessedCommandArgs, Is.Empty);
+            Assert.That(result.Run, Is.True);
+            Assert.That(result.RunArgs, Is.Not.Empty.And.EqualTo(new[] {"-s", "--help", "foo"}));
+            Assert.That(result.DownloadArguments.MaxFileAgeInMinutes, Is.EqualTo(720));
+            Assert.That(result.DownloadArguments.Target, Does.StartWith(Path.GetTempPath()).And.EndsWith(".exe"));
+        }
+
+        [Test]
+        public void Magic_Dependencies_Args()
+        {
+            //arrange
+
+            //act
+            var result = ArgumentParser.ParseArgumentsAndConfigurations(new[] {"-s", "--help", "foo"}, null, null, true,
+                new [] { "prerelease", "--max-file-age=42", "--nuget-source=http://local.site/path/here", "--force-nuget", "--prefer-nuget", "-f" } );
+
+            //assert
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Silent, Is.True);
+            Assert.That(result.UnprocessedCommandArgs, Is.Empty);
+            Assert.That(result.Run, Is.True);
+            Assert.That(result.RunArgs, Is.Not.Empty.And.EqualTo(new[] {"-s", "--help", "foo"}));
+            Assert.That(result.DownloadArguments.MaxFileAgeInMinutes, Is.EqualTo(42));
+            Assert.That(result.DownloadArguments.Target, Does.StartWith(Path.GetTempPath()).And.EndsWith(".exe"));
+            Assert.That(result.DownloadArguments.IgnorePrerelease, Is.False);
+            Assert.That(result.DownloadArguments.NugetSource, Is.EqualTo("http://local.site/path/here"));
+            Assert.That(result.DownloadArguments.IgnoreCache, Is.True);
+            Assert.That(result.ForceNuget, Is.True);
+            Assert.That(result.PreferNuget, Is.True);
+        }
+
+        [Test]
+        public void Magic_WithRun_Dependencies_Args()
+        {
+            //arrange
+
+            //act
+            var result = ArgumentParser.ParseArgumentsAndConfigurations(
+                new[]
+                {
+                    ArgumentParser.CommandArgs.Silent,
+                    ArgumentParser.CommandArgs.Run,
+                    "-s",
+                    "--help",
+                    "foo"
+                }, null, null, true,
+                new [] { "prerelease", "--max-file-age=42", "--nuget-source=http://local.site/path/here", "--force-nuget", "--prefer-nuget", "-f" });
+            
+            //assert
+            Assert.That(result.Run, Is.True);
+            Assert.That(result.Silent, Is.True);
+            Assert.That(result.RunArgs, Is.Not.Empty.And.EqualTo(new[] {"-s", "--help", "foo"}));
+            Assert.That(result.UnprocessedCommandArgs, Is.Empty);
+            Assert.That(result.DownloadArguments.Target, Does.StartWith(Path.GetTempPath()).And.EndsWith(".exe"));
+            Assert.That(result.DownloadArguments.MaxFileAgeInMinutes, Is.Null);
+        }
     }
 }

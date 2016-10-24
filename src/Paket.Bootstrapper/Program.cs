@@ -26,8 +26,11 @@ namespace Paket.Bootstrapper
             Console.CancelKeyPress += CancelKeyPressed;
 
             var magicMode = GetIsMagicMode();
+            var argumentsFromDependenciesFile = magicMode
+                ? WindowsProcessArguments.Parse(PaketDependencies.GetBootstrapperArgsForFolder(Environment.CurrentDirectory))
+                : null;
             var options = ArgumentParser.ParseArgumentsAndConfigurations(args, ConfigurationManager.AppSettings,
-                Environment.GetEnvironmentVariables(), magicMode);
+                Environment.GetEnvironmentVariables(), magicMode, argumentsFromDependenciesFile);
             if (options.ShowHelp)
             {
                 ConsoleImpl.WriteDebug(BootstrapperHelper.HelpText);

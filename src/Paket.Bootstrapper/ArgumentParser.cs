@@ -37,10 +37,20 @@ namespace Paket.Bootstrapper
             public const string PaketVersionEnv = "PAKET.VERSION";
         }
 
-        public static BootstrapperOptions ParseArgumentsAndConfigurations(IEnumerable<string> arguments, NameValueCollection appSettings, IDictionary envVariables, bool magicMode)
+        public static BootstrapperOptions ParseArgumentsAndConfigurations(IEnumerable<string> arguments,
+            NameValueCollection appSettings, IDictionary envVariables, bool magicMode,
+            IEnumerable<string> argumentsInDependenciesFile = null)
         {
             var options = new BootstrapperOptions();
+            ParseArgumentsAndConfigurations(arguments, appSettings, envVariables, magicMode, options,
+                argumentsInDependenciesFile);
+            return options;
+        }
 
+        static void ParseArgumentsAndConfigurations(IEnumerable<string> arguments, NameValueCollection appSettings,
+            IDictionary envVariables, bool magicMode, BootstrapperOptions options,
+            IEnumerable<string> argumentsInDependenciesFile)
+        {
             var commandArgs = arguments.ToList();
 
             ApplyAppSettings(appSettings, options);
@@ -51,9 +61,15 @@ namespace Paket.Bootstrapper
                 options.Silent = true;
                 options.Run = true;
                 options.RunArgs = commandArgs;
-                EvaluateDownloadOptions(options.DownloadArguments, new string[0], appSettings, envVariables, true);
                 options.DownloadArguments.MaxFileAgeInMinutes = 60*12;
-                return options;
+                EvaluateDownloadOptions(options.DownloadArguments, new string[0], appSettings, envVariables, true);
+                if (argumentsInDependenciesFile != null)
+                {
+                    // Let's do a second pass with the arguments that were found in the dependencies file
+                    ParseArgumentsAndConfigurations(argumentsInDependenciesFile, new NameValueCollection(),
+                        new Dictionary<string, string>(), false, options, null);
+                }
+                return;
             }
 
             if (runIndex != -1)
@@ -87,7 +103,6 @@ namespace Paket.Bootstrapper
             commandArgs = EvaluateDownloadOptions(options.DownloadArguments, commandArgs, appSettings, envVariables, magicMode).ToList();
 
             options.UnprocessedCommandArgs = commandArgs;
-            return options;
         }
 
         private static void ApplyAppSettings(NameValueCollection appSettings, BootstrapperOptions options)
