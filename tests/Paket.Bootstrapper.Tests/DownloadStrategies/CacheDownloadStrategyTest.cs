@@ -6,6 +6,8 @@ using Paket.Bootstrapper.DownloadStrategies;
 using Paket.Bootstrapper.HelperProxies;
 using System.Security.Cryptography;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Paket.Bootstrapper.Tests.DownloadStrategies
 {
@@ -166,39 +168,41 @@ namespace Paket.Bootstrapper.Tests.DownloadStrategies
             //assert
             mockEffectiveStrategy.Verify(x => x.SelfUpdate("any"));
         }
-        
+
+        private PaketHashFile CreateHashFile(params string[] lines)
+        {
+            return new PaketHashFile(lines.ToList());
+        }
+
         [Test]
         public void GetLatestVersion_PaketFileCorrupt_DownloadPaketFile()
         {
-            const string hashFile = @"C:\hash.txt";
+            var hashFile = CreateHashFile(Guid.NewGuid().ToString().Replace("-", String.Empty) + " paket.exe");
 
             //arrange
             mockEffectiveStrategy.Setup(x => x.GetLatestVersion(true)).Throws<WebException>().Verifiable();
             mockFileProxy.Setup(x => x.OpenRead(It.IsAny<string>())).Returns(new MemoryStream(Guid.NewGuid().ToByteArray()));
-            mockFileProxy.Setup(x => x.ReadAllLines(hashFile)).Returns(new[] { Guid.NewGuid().ToString().Replace("-", String.Empty) + " paket.exe" });
             mockFileProxy.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
 
             //act
             sut.DownloadVersion("any", "any", hashFile);
 
             //assert
-            mockEffectiveStrategy.Verify(x => x.DownloadVersion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            mockEffectiveStrategy.Verify(x => x.DownloadVersion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<PaketHashFile>()), Times.Once);
             mockFileProxy.Verify(x => x.CopyFile(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()));
         }
 
         [Test]
         public void GetLatestVersion_PaketFileNotCorrupt_DontDownloadPaketFile()
         {
-            const string hashFile = @"C:\hash.txt";
-
             //arrange
             var content = Guid.NewGuid().ToByteArray();
             var sha = new SHA256Managed();
             var checksum = sha.ComputeHash(new MemoryStream(content));
             var hash = BitConverter.ToString(checksum).Replace("-", String.Empty);
+            var hashFile = CreateHashFile(hash + " paket.exe");
             mockEffectiveStrategy.Setup(x => x.GetLatestVersion(true)).Throws<WebException>().Verifiable();
             mockFileProxy.Setup(x => x.OpenRead(It.IsAny<string>())).Returns(new MemoryStream(content));
-            mockFileProxy.Setup(x => x.ReadAllLines(hashFile)).Returns(new[] { hash + " paket.exe" });
             mockFileProxy.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
 
             //act
@@ -210,14 +214,13 @@ namespace Paket.Bootstrapper.Tests.DownloadStrategies
         }
 
         [Test]
-        public void GetLatestVersion_PaketHashFileExistsButIsCorrupt_DeleteHashFileAndThrowException()
+        public void GetLatestVersion_PaketHashFileExistsButIsCorrupt_ThrowException()
         {
-            const string hashFile = @"C:\hash.txt";
+            var hashFile = CreateHashFile(Guid.NewGuid().ToString().Replace("-", String.Empty) + " not-paket.exe");
 
             //arrange
             mockEffectiveStrategy.Setup(x => x.GetLatestVersion(true)).Throws<WebException>().Verifiable();
             mockFileProxy.Setup(x => x.OpenRead(It.IsAny<string>())).Returns(new MemoryStream(Guid.NewGuid().ToByteArray()));
-            mockFileProxy.Setup(x => x.ReadAllLines(hashFile)).Returns(new[] { Guid.NewGuid().ToString().Replace("-", String.Empty) + " not-paket.exe" });
             mockFileProxy.Setup(x => x.FileExists(It.IsAny<string>())).Returns(true);
 
             //act
@@ -225,7 +228,6 @@ namespace Paket.Bootstrapper.Tests.DownloadStrategies
 
             //assert
             mockEffectiveStrategy.Verify(x => x.DownloadVersion(It.IsAny<string>(), It.IsAny<string>(), null), Times.Never);
-            mockFileProxy.Verify(x => x.DeleteFile(hashFile));
         }
 
         public string ItHasFilename(string filename)
@@ -256,12 +258,14 @@ namespace Paket.Bootstrapper.Tests.DownloadStrategies
         public void DownloadHashFile_PresentInCache()
         {
             mockEffectiveStrategy.SetupGet(x => x.CanDownloadHashFile).Returns(true);
+            mockEffectiveStrategy.Setup(x => x.DownloadHashFile("42.0")).Returns(CreateHashFile());
             var pathInCache = sut.GetHashFilePathInCache("42.0");
             mockFileProxy.Setup(x => x.FileExists(pathInCache)).Returns(true);
+            
 
-            var hashFilePath = sut.DownloadHashFile("42.0");
+            var hashFile = sut.DownloadHashFile("42.0");
 
-            Assert.That(hashFilePath, Is.EqualTo(pathInCache));
+            Assert.That(hashFile, Is.EqualTo(pathInCache));
             mockEffectiveStrategy.Verify(x => x.DownloadHashFile(It.IsAny<string>()), Times.Never);
         }
 
@@ -269,7 +273,7 @@ namespace Paket.Bootstrapper.Tests.DownloadStrategies
         public void DownloadHashFile_NotInCache()
         {
             const string pathFromEffectiveStrategy = @"C:\hash.txt";
-            mockEffectiveStrategy.Setup(x => x.DownloadHashFile(It.IsAny<string>())).Returns(pathFromEffectiveStrategy);
+            mockEffectiveStrategy.Setup(x => x.DownloadHashFile(It.IsAny<string>())).Returns(CreateHashFile());
             mockEffectiveStrategy.SetupGet(x => x.CanDownloadHashFile).Returns(true);
             var pathInCache = sut.GetHashFilePathInCache("42.0");
             mockFileProxy.Setup(x => x.FileExists(pathInCache)).Returns(false);
