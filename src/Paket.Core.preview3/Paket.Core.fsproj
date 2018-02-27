@@ -10,7 +10,7 @@
     </EmbeddedResource>
     <Compile Include="$(PaketCoreSourcesDir)\Common\AssemblyInfo.fs" />
     <Compile Include="$(PaketCoreSourcesDir)\Common\CustomAssemblyInfo.fs" />
-    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.StarterPack\src\AssemblyReader.fs">
+    <Compile Include="..\..\paket-files\fsprojects\FSharp.TypeProviders.SDK\src\AssemblyReader.fs">
       <Paket>True</Paket>
       <Link>AssemblyReader.fs</Link>
     </Compile>
